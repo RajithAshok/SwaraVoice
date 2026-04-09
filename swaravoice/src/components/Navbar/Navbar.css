@@ -1,0 +1,260 @@
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--nav-height);
+  background: rgba(5, 11, 20, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 1000;
+  transition: background var(--transition-normal);
+}
+
+.navbar-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  height: 100%;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Logo */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+.navbar-logo:hover { opacity: 0.85; }
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: rgba(56,189,248,0.1);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.logo-text span { color: var(--accent-cyan); }
+
+/* Nav links */
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 1rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.nav-link:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+.nav-link.active {
+  background: rgba(56,189,248,0.1);
+  color: var(--accent-cyan);
+}
+.nav-icon { font-size: 0.9rem; opacity: 0.8; }
+
+/* Right side */
+.navbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hospital-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(56,189,248,0.07);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hospital-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
+/* Profile */
+.profile-wrapper { position: relative; }
+
+.profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-primary);
+}
+.profile-btn:hover, .profile-btn.open {
+  border-color: var(--border-mid);
+  background: var(--bg-card-hover);
+}
+
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.avatar.large { width: 40px; height: 40px; font-size: 0.9rem; }
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+.profile-name { font-size: 0.82rem; font-weight: 600; }
+.profile-role  { font-size: 0.7rem; color: var(--text-secondary); }
+
+.chevron { font-size: 0.7rem; color: var(--text-muted); margin-left: 0.25rem; transition: transform var(--transition-fast); }
+.profile-btn.open .chevron { transform: rotate(180deg); }
+
+/* Dropdown */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 240px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: fadeInUp 0.2s ease;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.dropdown-name { font-size: 0.88rem; font-weight: 600; }
+.dropdown-hospital { font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.1rem; }
+
+.dropdown-divider { height: 1px; background: var(--border-subtle); }
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+.dropdown-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.dropdown-item.danger:hover { color: var(--accent-rose); }
+
+/* Hamburger */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+}
+.hamburger span {
+  display: block;
+  width: 22px; height: 2px;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transition: all var(--transition-fast);
+}
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile drawer */
+.mobile-drawer {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.5rem;
+  animation: fadeIn 0.2s ease;
+}
+.mobile-nav-link {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  background: none; border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+.mobile-nav-link:hover { background: var(--bg-card); color: var(--text-primary); }
+.mobile-nav-link.active { color: var(--accent-cyan); background: rgba(56,189,248,0.08); }
+.mobile-nav-link.danger:hover { color: var(--accent-rose); }
+
+@media (max-width: 768px) {
+  .navbar { height: auto; }
+  .navbar-links, .hospital-badge, .profile-info, .chevron { display: none; }
+  .hamburger { display: flex; }
+  .navbar-inner { height: var(--nav-height); }
+}
+
+.dropdown-role  { font-size: 0.72rem; font-weight: 600; margin-bottom: 0.1rem; }
+.dropdown-email { font-size: 0.7rem; color: var(--text-muted); }
+
+/* ── Extra dropdown fields ───────────────────────────────────────────────── */
+.dropdown-role  { font-size: 0.72rem; font-weight: 600; margin-top: 0.1rem; }
+.dropdown-email { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
