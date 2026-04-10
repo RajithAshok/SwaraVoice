@@ -194,11 +194,11 @@ export function generateReport({ patient, session, analysis, doctor, hospitalNam
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...C.navy);
-  doc.text('Composite Voice Score', ML + 32, y + 6);
+  doc.text('Composite Voice \nScore', ML + 32, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...C.muted);
-  doc.text(`Overall rating: ${scoreLabel(composite)}`, ML + 32, y + 12);
+  doc.text(`Overall rating: ${scoreLabel(composite)}`, ML + 32, y + 12 + 3);
 
   // Subset scores — three cards to the right
   const subsets = [
@@ -345,7 +345,7 @@ export function generateReport({ patient, session, analysis, doctor, hospitalNam
   doc.setFillColor(235, 244, 252);
   doc.setDrawColor(...C.border);
   doc.setLineWidth(0.3);
-  doc.roundedRect(ML, y, CW, 14, 2, 2, 'FD');
+  doc.roundedRect(ML, y, CW, 16, 2, 2, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
@@ -359,7 +359,7 @@ export function generateReport({ patient, session, analysis, doctor, hospitalNam
     'Composite = 0.4 × Stability + 0.4 × Clarity + 0.2 × Efficiency   |   ' +
     'Stability = avg(Jitter, Shimmer, F0 SD)   |   ' +
     'Clarity = avg(HNR, CPPS)   |   ' +
-    'Efficiency = avg(MPT, Pitch Range)',
+    '\nEfficiency = avg(MPT, Pitch Range)',
     ML + 4, y + 10,
   );
 
