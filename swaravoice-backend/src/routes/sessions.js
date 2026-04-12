@@ -1,187 +1,3 @@
-// const express  = require('express');
-// const multer   = require('multer');
-// const Session  = require('../models/Session');
-// const Patient  = require('../models/Patient');
-// const Hospital = require('../models/Hospital');
-// const { auth, requireRole } = require('../middleware/auth');
-// const { uploadAudio, getAudioUrl, buildTrackKey } = require('../config/r2');
-// const { generateID } = require('../utils/helpers');
-
-// const router = express.Router();
-
-// // ── Multer config ─────────────────────────────────────────────────────────────
-// // Store files in memory (Buffer) — we stream them straight to R2.
-// // Max 50MB per file (WAV audio). Limit to exactly 4 files per request.
-// const upload = multer({
-//   storage: multer.memoryStorage(),
-//   limits:  { fileSize: 50 * 1024 * 1024, files: 4 },
-//   fileFilter: (req, file, cb) => {
-//     if (file.mimetype === 'audio/wav' || file.mimetype === 'audio/wave') {
-//       cb(null, true);
-//     } else {
-//       cb(new Error(`Invalid file type: ${file.mimetype}. Only audio/wav is accepted.`));
-//     }
-//   },
-// });
-
-// // ── GET /api/sessions/patient/:patientId ──────────────────────────────────────
-// // Fetch all sessions for a patient. Returns sessions with fresh presigned URLs.
-// router.get('/patient/:patientId', auth, async (req, res) => {
-//   try {
-//     const patient = await Patient.findById(req.params.patientId);
-//     if (!patient) return res.status(404).json({ error: 'Patient not found' });
-
-//     // Scope check
-//     if (req.user.role === 'Doctor' && patient.doctorID.toString() !== req.user._id.toString()) {
-//       return res.status(403).json({ error: 'Access denied' });
-//     }
-//     if (req.user.role === 'Admin' && patient.hospitalID.toString() !== req.user.hospitalID.toString()) {
-//       return res.status(403).json({ error: 'Access denied' });
-//     }
-
-//     const sessions = await Session.find({ patientID: req.params.patientId })
-//       .sort({ createdAt: -1 });
-
-//     // Attach fresh presigned URLs for each track (1-hour expiry)
-//     // This avoids storing URLs permanently since presigned URLs expire
-//     const sessionsWithUrls = await Promise.all(
-//       sessions.map(async (session) => {
-//         const obj = session.toObject();
-//         obj.tracks = await Promise.all(
-//           obj.tracks.map(async (track) => ({
-//             ...track,
-//             r2Url: track.r2Key ? await getAudioUrl(track.r2Key) : null,
-//           }))
-//         );
-//         return obj;
-//       })
-//     );
-
-//     res.json({ sessions: sessionsWithUrls });
-//   } catch (err) {
-//     console.error('Fetch sessions error:', err);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // ── POST /api/sessions ────────────────────────────────────────────────────────
-// // Create a session. Expects multipart/form-data with:
-// //   - patientId  (field)
-// //   - files: aa, glide, mpt, text (4 WAV files, named by taskSuffix)
-// //
-// // Flow:
-// //   1. Validate patient ownership
-// //   2. Upload all 4 WAVs to R2
-// //   3. Create Session document in MongoDB
-// //   4. Update hospital usage counters
-// //   5. Return session with presigned URLs
-// //
-// // AWS FUTURE: After saving to MongoDB, publish a message to Kafka/SQS
-// // with the session ID and R2 keys to trigger the ML pipeline.
-// router.post('/', auth, requireRole('Doctor', 'Admin'),
-//   upload.fields([
-//     { name: 'aa',    maxCount: 1 },
-//     { name: 'glide', maxCount: 1 },
-//     { name: 'mpt',   maxCount: 1 },
-//     { name: 'text',  maxCount: 1 },
-//   ]),
-//   async (req, res) => {
-//     try {
-//       const { patientId } = req.body;
-//       if (!patientId) return res.status(400).json({ error: 'patientId is required' });
-
-//       // Validate all 4 files are present
-//       const SUFFIXES = ['aa', 'glide', 'mpt', 'text'];
-//       const files    = req.files || {};
-//       const missing  = SUFFIXES.filter((s) => !files[s] || !files[s][0]);
-//       if (missing.length > 0) {
-//         return res.status(400).json({ error: `Missing tracks: ${missing.join(', ')}` });
-//       }
-
-//       // Fetch patient and verify ownership
-//       const patient = await Patient.findById(patientId);
-//       if (!patient) return res.status(404).json({ error: 'Patient not found' });
-
-//       if (req.user.role === 'Doctor' && patient.doctorID.toString() !== req.user._id.toString()) {
-//         return res.status(403).json({ error: 'Access denied' });
-//       }
-
-//       // Count existing sessions for this patient to get sessionNumber
-//       const existingCount = await Session.countDocuments({ patientID: patient._id });
-//       const sessionNumber = existingCount + 1;
-//       const sessionID     = generateID('SES');
-
-//       // Build a base filename from patientID + session number + timestamp
-//       const dt       = new Date().toISOString().slice(0, 16).replace(/:/g, '-');
-//       const fileBase = `${patient.patientID}_${sessionNumber}_${dt}`;
-
-//       // Upload all 4 tracks to R2 concurrently
-//       const tracks = await Promise.all(
-//         SUFFIXES.map(async (suffix) => {
-//           const file     = files[suffix][0];
-//           const fileName = `${fileBase}_${suffix}.wav`;
-//           const r2Key    = buildTrackKey(
-//             patient.hospitalID.toString(),
-//             patient._id.toString(),
-//             sessionID,
-//             fileName
-//           );
-
-//           await uploadAudio(file.buffer, r2Key, 'audio/wav');
-
-//           return {
-//             taskSuffix:    suffix,
-//             fileName,
-//             r2Key,
-//             r2Url:         null, // generated on demand, not stored permanently
-//             fileSizeBytes: file.size,
-//           };
-//         })
-//       );
-
-//       // Save session to MongoDB
-//       const session = await Session.create({
-//         sessionID,
-//         sessionNumber,
-//         patientID:  patient._id,
-//         doctorID:   req.user._id,
-//         hospitalID: patient.hospitalID,
-//         tracks,
-//       });
-
-//       // Update hospital usage counters
-//       const totalBytes = tracks.reduce((acc, t) => acc + t.fileSizeBytes, 0);
-//       await Hospital.findByIdAndUpdate(patient.hospitalID, {
-//         $inc: {
-//           'usage.totalSessions': 1,
-//           'usage.storageBytes':  totalBytes,
-//         },
-//         $set: { 'usage.lastActivityAt': new Date() },
-//       });
-
-//       // Generate presigned URLs for immediate playback in the response
-//       const sessionObj = session.toObject();
-//       sessionObj.tracks = await Promise.all(
-//         sessionObj.tracks.map(async (track) => ({
-//           ...track,
-//           r2Url: await getAudioUrl(track.r2Key),
-//         }))
-//       );
-
-//       // AWS FUTURE: Publish to Kafka/SQS here to trigger ML pipeline
-//       // await kafkaProducer.send({ topic: 'new-session', messages: [{ value: JSON.stringify({ sessionID, r2Keys: tracks.map(t => t.r2Key) }) }] });
-
-//       res.status(201).json({ session: sessionObj });
-//     } catch (err) {
-//       console.error('Create session error:', err);
-//       res.status(500).json({ error: 'Server error' });
-//     }
-//   }
-// );
-
-// module.exports = router;
-
-
 const express    = require('express');
 const multer     = require('multer');
 const path       = require('path');
@@ -193,7 +9,8 @@ const Patient    = require('../models/Patient');
 const Hospital   = require('../models/Hospital');
 const { auth, requireRole } = require('../middleware/auth');
 const { uploadAudio, getAudioUrl, buildTrackKey, downloadAudio } = require('../config/r2');
-const { generateID } = require('../utils/helpers');
+const { generateID }        = require('../utils/helpers');
+const { generatePdfBuffer } = require('../utils/pdfReport');
 
 const router = express.Router();
 
@@ -418,8 +235,29 @@ router.post('/', auth, requireRole('Doctor', 'Admin'),
       const analysis = await runAnalysis(tracks, gender);
 
       if (analysis) {
-        session.analysis      = analysis;
+        session.analysis       = analysis;
         session.compositeScore = analysis.composite;
+
+        // Generate PDF report and upload to R2 alongside the audio files.
+        // Stored at {hospitalID}/{patientID}/{sessionID}/report.pdf
+        try {
+          const pdfBuffer = await generatePdfBuffer({
+            patient,
+            session:      { sessionNumber, createdAt: session.createdAt },
+            analysis,
+            doctor:       req.user,
+            hospitalName: req.user?.hospitalID?.name || '',
+          });
+
+          const pdfKey = `${patient.hospitalID}/${patient._id}/${sessionID}/report.pdf`;
+          await uploadAudio(pdfBuffer, pdfKey, 'application/pdf');
+          session.reportPdfLink = pdfKey;  // store R2 key; fresh URL generated on demand
+          console.log('[SwaraVoice] PDF uploaded to R2:', pdfKey);
+        } catch (pdfErr) {
+          // PDF failure never blocks session save
+          console.error('[SwaraVoice] PDF generation failed:', pdfErr.message);
+        }
+
         await session.save();
       }
 
@@ -449,5 +287,63 @@ router.post('/', auth, requireRole('Doctor', 'Admin'),
     }
   }
 );
+
+
+// ── GET /api/sessions/:id/report ──────────────────────────────────────────────
+// Returns a fresh presigned URL for the session's PDF report.
+// Presigned URLs expire after 1 hour, so we always regenerate one here rather
+// than storing the URL itself in MongoDB (we store only the R2 key).
+//
+// If no report exists yet but analysis data is present, generates the PDF
+// on-demand, uploads to R2, and returns the fresh URL.
+router.get('/:id/report', auth, async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id).populate('patientID doctorID');
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    // Scope check
+    if (req.user.role === 'Doctor' && session.doctorID._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (req.user.role === 'Admin' && session.hospitalID.toString() !== req.user.hospitalID.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    let pdfKey = session.reportPdfLink;  // we store the R2 key, not a URL
+
+    if (!pdfKey) {
+      // No report stored yet — generate it now if analysis exists
+      if (!session.analysis) {
+        return res.status(404).json({ error: 'No analysis available for this session yet.' });
+      }
+
+      const patient = session.patientID;  // populated above
+      const doctor  = session.doctorID;
+
+      const pdfBuffer = await generatePdfBuffer({
+        patient,
+        session: { sessionNumber: session.sessionNumber, createdAt: session.createdAt },
+        analysis: session.analysis,
+        doctor,
+        hospitalName: doctor?.hospitalID?.name || '',
+      });
+
+      pdfKey = `${session.hospitalID}/${patient._id}/${session.sessionID}/report.pdf`;
+      await uploadAudio(pdfBuffer, pdfKey, 'application/pdf');
+
+      session.reportPdfLink = pdfKey;
+      await session.save();
+      console.log('[SwaraVoice] On-demand PDF generated and uploaded:', pdfKey);
+    }
+
+    // Generate a fresh presigned URL (1-hour expiry)
+    const reportUrl = await getAudioUrl(pdfKey);
+    res.json({ reportUrl });
+
+  } catch (err) {
+    console.error('Get report error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 module.exports = router;

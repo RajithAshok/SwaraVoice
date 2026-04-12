@@ -77,4 +77,7 @@ export const sessionsAPI = {
     tracks.forEach(({ taskSuffix, blob, fileName }) => fd.append(taskSuffix, blob, fileName));
     return upload('/sessions', fd);
   },
+  // Returns { reportUrl } — a fresh presigned URL for the session's PDF report.
+  // Generates and uploads the PDF on-demand if it doesn't exist yet.
+  getReport: (sessionId) => get(`/sessions/${sessionId}/report`),
 };

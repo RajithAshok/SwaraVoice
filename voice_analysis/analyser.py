@@ -81,7 +81,7 @@ PITCH_CEIL  = {"Male": 500, "Female": 500}
 # ─────────────────────────────────────────────────────────────────────────────
 
 def z_to_score(z: float) -> float:
-    return max(0.0, min(100.0, 50.0 + 10.0 * z))
+    return round(max(0.0, min(100.0, 50.0 + 10.0 * z)))
 
 
 def metric_score(value: float, metric_name: str, gender: str) -> float:
@@ -313,7 +313,7 @@ def extract_text(path: str) -> dict:
 
 def glide_range_score(pitch_range: float, gender: str) -> float:
     expected = NORMS[gender]["glide_expected_range"]
-    return max(0.0, min(100.0, (pitch_range / expected) * 100))
+    return round(max(0.0, min(100.0, (pitch_range / expected) * 100)))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -355,7 +355,7 @@ def analyse_session(
     efficiency = (scores["mpt"]    + scores["glide"]) / 2
     composite  = 0.4 * stability + 0.4 * clarity + 0.2 * efficiency
 
-    def cap(v): return round(max(0.0, min(100.0, v)), 2)
+    def cap(v): return round(max(0.0, min(100.0, v)))
 
     return {
         "gender":     gender,

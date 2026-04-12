@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp, calcAge } from '../../context/AppContext';
-import { generateReport } from '../../utils/generateReport';
+import { sessionsAPI } from '../../services/api';
 import './PatientInfo.css';
 
 const TASK_LABELS = { aa: 'Sustained Vowel', glide: 'Pitch Glide', mpt: 'Maximum Phonation Time', text: 'Reading Passage' };
@@ -70,28 +70,31 @@ function TrackRow({ track }) {
 
 // ── Session Card ──────────────────────────────────────────────────────────────
 function SessionCard({ session, isLatest, patient, currentUser }) {
-  const [expanded, setExpanded] = useState(isLatest);
-  const date      = new Date(session.createdAt);
-  const dateStr   = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const timeStr   = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const [expanded,     setExpanded]     = useState(isLatest);
+  const [pdfLoading,   setPdfLoading]   = useState(false);
+
+  const date       = new Date(session.createdAt);
+  const dateStr    = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const timeStr    = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const scoreColor = session.compositeScore == null ? 'var(--text-muted)'
     : session.compositeScore >= 80 ? 'var(--accent-green)'
     : session.compositeScore >= 60 ? 'var(--accent-amber)' : 'var(--accent-rose)';
 
-  const handleDownloadPdf = (e) => {
+  const handleDownloadPdf = async (e) => {
     e.stopPropagation();
-    // If no analysis stored yet, show a message rather than a blank PDF
     if (!session.analysis) {
       alert('No analysis available for this session yet.');
       return;
     }
-    generateReport({
-      patient,
-      session,
-      analysis:     session.analysis,
-      doctor:       currentUser,
-      hospitalName: currentUser?.hospitalID?.name || '',
-    });
+    setPdfLoading(true);
+    try {
+      const { reportUrl } = await sessionsAPI.getReport(session._id);
+      window.open(reportUrl, '_blank');
+    } catch (err) {
+      alert('Could not open report: ' + err.message);
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   return (
@@ -113,9 +116,10 @@ function SessionCard({ session, isLatest, patient, currentUser }) {
           <button
             className={`session-pdf-btn ${!session.analysis ? 'disabled' : ''}`}
             onClick={handleDownloadPdf}
-            title={session.analysis ? 'Download PDF report' : 'No analysis available'}
+            disabled={pdfLoading || !session.analysis}
+            title={session.analysis ? 'Open PDF report' : 'No analysis available'}
           >
-            ⬇ Report
+            {pdfLoading ? '⏳…' : '⬇ Report'}
           </button>
           <span className={`session-chevron ${expanded ? 'open' : ''}`}>›</span>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { sessionsAPI } from '../../services/api';
 import './Recording.css';
 
 // ─────────────────────────────────────────────
@@ -174,7 +175,6 @@ function WaveformBars({ active }) {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
 
-import { generateReport } from '../../utils/generateReport';
 
 export default function Recording() {
   const { selectedPatient, selectedSessions, actions, currentUser } = useApp();
@@ -192,7 +192,7 @@ export default function Recording() {
 
   // Calibration — persisted to localStorage
   const [calibration,     setCalibration]     = useState(() => {
-    const s = localStorage.getItem('swaravoice_db_calibration');
+    const s = localStorage.getItem('vocascan_db_calibration');
     return s ? parseFloat(s) : 0;
   });
   const [showCalibration, setShowCalibration] = useState(false);
@@ -208,6 +208,7 @@ export default function Recording() {
   const [resultVisible,  setResultVisible]  = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [sessionResult,  setSessionResult]  = useState(null);
+  const [pdfLoading,     setPdfLoading]     = useState(false);
 
   // Refs
   const streamRef      = useRef(null);
@@ -338,7 +339,7 @@ export default function Recording() {
     const val = parseFloat(calibDraft);
     if (isNaN(val) || val < 0 || val > 60) return;
     setCalibration(val);
-    localStorage.setItem('swaravoice_db_calibration', val.toString());
+    localStorage.setItem('vocascan_db_calibration', val.toString());
     setShowCalibration(false);
   };
 
@@ -462,7 +463,11 @@ export default function Recording() {
       const session = await actions.submitSession(selectedPatient._id, tracks);
 
       setSessionResult(session);
-      if (session?.analysis) setAnalysisResult(session.analysis);
+      if (session?.analysis) {
+        setAnalysisResult(session.analysis);
+        // PDF is generated server-side during session creation and stored in R2.
+        // The ⬇ Report button calls GET /api/sessions/:id/report for a fresh URL.
+      }
 
       setStage(STAGES.DONE);
       setResultVisible(true);
@@ -915,18 +920,23 @@ export default function Recording() {
               )}
 
               <div className="done-actions">
-                {analysisResult && (
+                {analysisResult && sessionResult && (
                   <button
                     className="btn-ghost"
-                    onClick={() => generateReport({
-                      patient:      selectedPatient,
-                      session:      sessionResult,
-                      analysis:     analysisResult,
-                      doctor:       currentUser,
-                      hospitalName: currentUser?.hospitalID?.name || '',
-                    })}
+                    disabled={pdfLoading}
+                    onClick={async () => {
+                      setPdfLoading(true);
+                      try {
+                        const { reportUrl } = await sessionsAPI.getReport(sessionResult._id);
+                        window.open(reportUrl, '_blank');
+                      } catch (err) {
+                        actions.showToast('Could not open report: ' + err.message, 'error');
+                      } finally {
+                        setPdfLoading(false);
+                      }
+                    }}
                   >
-                    ⬇ Download PDF Report
+                    {pdfLoading ? '⏳ Opening…' : '⬇ Open PDF Report'}
                   </button>
                 )}
                 <button className="btn-primary" onClick={() => { cleanup(); navigate('/patient'); }}>
